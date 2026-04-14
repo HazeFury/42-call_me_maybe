@@ -1,4 +1,4 @@
-NAME = PROJECT
+NAME = call_me_maybe
 VERSION = 0.1.0
 VENV = .venv
 SRC_DIR = src/

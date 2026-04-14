@@ -7,7 +7,7 @@ _This project has been created as part of the 42 curriculum by marberge._
   <br>
 </div>
 
-# [PROJECT TITLE]
+# Call Me Maybe
 
 ![Language](https://img.shields.io/badge/Language-python-blue)
 
