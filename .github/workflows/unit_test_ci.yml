@@ -1,4 +1,4 @@
-name: CI - [Project] Tests
+name: CI - Call Me Maybe Tests
 
 on:
   pull_request:
