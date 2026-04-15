@@ -35,7 +35,7 @@ This project is fully automated using Make. Here is the complete list of availab
 
 **Installation & Setup**
 - ```make install``` (or **make all**): Initializes the virtual environment (.venv) and synchronizes all dependencies using uv.
-- ```make setup```: Checks your Python version and installs the uv package manager if it is not already installed.
+- ```make setup```: Checks your Python version and presence of the uv package manager. Exit if both check are not valid.
 
 **Execution & Debugging**
 - ```make run```: Executes the main entry point (src/main.py) inside the isolated virtual environment.
