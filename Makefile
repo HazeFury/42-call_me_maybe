@@ -1,9 +1,7 @@
 NAME = call_me_maybe
 VERSION = 0.1.0
 VENV = .venv
-SRC_DIR = src/
-MAIN = app/main.py
-
+SRC_DIR = src
 
 all: install
 
@@ -27,14 +25,14 @@ build: install
 	@uv build
 
 run:
-	@uv run $(SRC_DIR)$(MAIN)
+	@uv run python -m $(SRC_DIR)
 
 debug:
-	@uv run python3 -m pdb $(SRC_DIR)$(MAIN)
+	@uv run python -m pdb $(SRC_DIR)
 
 clean:
 	@echo "Removing temporary files or caches"
-	@rm -rf .mypy_cache .pytest_cache .pytest_cache src/*.egg-info
+	@rm -rf .mypy_cache .uv_cache .pytest_cache .pytest_cache src/*.egg-info
 	@find . -type d -name "__pycache__" -exec rm -rf {} +
 
 fclean: clean

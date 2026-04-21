@@ -10,3 +10,10 @@ wheels/
 
 # Virtual environments
 .venv
+
+#IA specific
+hf_cache/
+hf_home/
+models/
+*.bin
+*.safetensors
