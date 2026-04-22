@@ -73,9 +73,9 @@ def get_items_from_json(
             )
 
     if item_type == "func":
-        items = [FunctionValidator(*el) for el in raw_json]
+        items = [FunctionValidator(**el) for el in raw_json]
     else:
-        items = [PromptValidator(*el) for el in raw_json]
+        items = [PromptValidator(**el) for el in raw_json]
 
     if item_type == "func" and not items:
         raise ValueError(
