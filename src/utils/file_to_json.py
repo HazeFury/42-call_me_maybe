@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from pydantic import TypeAdapter
 from typing import Any
 from src.utils.validators import FunctionValidator, PromptValidator
 
@@ -67,15 +68,12 @@ def get_items_from_json(
 
     raw_json = parse_file_to_json(file_path)
 
-    if not isinstance(raw_json, list):
-        raise ValueError(
-            f"There is no valid list of functions in {file_path} "
-            )
-
     if item_type == "func":
-        items = [FunctionValidator(**el) for el in raw_json]
+        adapter = TypeAdapter(list[FunctionValidator])
     else:
-        items = [PromptValidator(**el) for el in raw_json]
+        adapter = TypeAdapter(list[PromptValidator])
+
+    items = adapter.validate_python(raw_json)
 
     if item_type == "func" and not items:
         raise ValueError(
