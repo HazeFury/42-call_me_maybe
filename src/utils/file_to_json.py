@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from pydantic import TypeAdapter
 from typing import Any
+from collections.abc import Sequence
 from src.utils.validators import FunctionValidator, PromptValidator
 
 
@@ -51,7 +52,7 @@ def parse_file_to_json(file_path: str) -> Any:
 
 def get_items_from_json(
         file_path: str, item_type: str
-        ) -> list[FunctionValidator | PromptValidator]:
+        ) -> Sequence[FunctionValidator | PromptValidator]:
     """
     Extract and validates content using Pydantic model validators.
 
