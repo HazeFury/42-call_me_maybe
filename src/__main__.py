@@ -1,5 +1,6 @@
 from src.utils.file_to_json import get_items_from_json
 from src.utils.parser import parse_arguments
+from src.core.prompt_builder import PromptBuilder
 
 
 def main() -> None:
@@ -15,17 +16,21 @@ def main() -> None:
             file_path=args.functions_definition,
             item_type="func"
         )
-        functions = [f.model_dump() for f in validated_functions]
+        # functions = [f.model_dump() for f in validated_functions]
 
         validated_prompts = get_items_from_json(
             file_path=args.input,
             item_type="prompt"
         )
-        prompts = [f.model_dump() for f in validated_prompts]
+        prompts = [f.model_dump_json() for f in validated_prompts]
 
-        print(functions)
+        prompter = PromptBuilder(validated_functions)
+
+        prompter.build_prompt(prompts[0])
+
+        # print(functions)
         print("\n" + "="*40 + "\n")
-        print(prompts)
+        # print(prompts)
         print("\n" + "="*40 + "\n")
     except Exception as e:
         print(f"[ERROR] {e}")
