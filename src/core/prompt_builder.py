@@ -1,22 +1,32 @@
-from src.utils.validators import ResultValidator, FunctionValidator
+import json
+from src.utils.validators import FunctionValidator, PromptValidator
 
 
 class PromptBuilder:
-    def __init__(self, decoder, functions_defs):
-        self.decoder = decoder
-        self._cache: dict[str, ResultValidator] = {}
-        self.functions_defs: list[FunctionValidator] = functions_defs
+    """Builds the system prompt injected into the LLM context."""
 
-    def build_prompt(self, user_prompt: str) -> str:
+    def __init__(self, functions_defs: list[FunctionValidator]):
+        functions_dicts = [f.model_dump() for f in functions_defs]
+        self.functions_definitions_json: str = json.dumps(
+            functions_dicts, indent=2
+            )
 
-        role: str = "role : find the appropriate function to satisfy \
-            the user query. You must find function name and parameters " \
-            "accordingly to the following functions definition list.\n"
+    def build_prompt(self, user_prompt: PromptValidator) -> str:
+        """Formats the final string to send to the LLM."""
 
-        function_list: list[dict[str, str]] = [f.model_dump() for f in self.functions_defs]
-        function_definitions: str = f"function definitions : {function_list}"
+        role: str = (
+            "role: find the appropriate function to satisfy the user query. "
+            "You must find function name and parameters accordingly to the "
+            "following functions definition list. "
+            "You must reply ONLY with a valid JSON object containing the "
+            "keys 'name' and 'parameters'. Do not add any text before "
+            "or after.\n\n"
+        )
 
-        user_query: str = f"user query : {user_prompt}"
+        function_definitions: str = "function definitions:\n" \
+                                    f"{self.functions_definitions_json}\n\n"
+
+        user_query: str = f"user query: {user_prompt.prompt}\n"
 
         final_prompt: str = role + function_definitions + user_query
-        print(final_prompt)
+        return final_prompt

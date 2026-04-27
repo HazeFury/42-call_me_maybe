@@ -1,34 +1,38 @@
-from src.utils.file_to_json import get_items_from_json
-from src.utils.parser import parse_arguments
+import sys
+from llm_sdk import Small_LLM_Model  # type: ignore
+from src.core.generation_orchestrator import GenerationOrchestrator
+from src.core.prompt_builder import PromptBuilder
+from src.utils.parser import get_args
 
 
 def main() -> None:
+    # ==========================  PARSING  =============================
     try:
-        args = parse_arguments()
+        functions, prompts = get_args()
 
-        print("received paths :\n"
-              f"{args.functions_definition}\n"
-              f"{args.input}\n"
-              f"{args.output}\n\n")
+        if len(prompts) == 0:
+            raise ValueError("Please enter at least one prompt to "
+                             "start the program !")
 
-        validated_functions = get_items_from_json(
-            file_path=args.functions_definition,
-            item_type="func"
-        )
-        functions = [f.model_dump() for f in validated_functions]
-
-        validated_prompts = get_items_from_json(
-            file_path=args.input,
-            item_type="prompt"
-        )
-        prompts = [f.model_dump() for f in validated_prompts]
-
-        print(functions)
-        print("\n" + "="*40 + "\n")
-        print(prompts)
-        print("\n" + "="*40 + "\n")
     except Exception as e:
-        print(f"[ERROR] {e}")
+        print("[ERROR] An error occured during "
+              f"parsing :\n {e}\n")
+        sys.exit(1)
+
+    # =========================  GENERATION  =============================
+
+    try:
+        llm = Small_LLM_Model()
+
+        prompter = PromptBuilder(functions)
+
+        orchestrator = GenerationOrchestrator(llm, prompter)
+        orchestrator.run_generation(prompts)
+    except Exception as e:
+        print("[ERROR] An error occured during initialization or "
+              f"running the main loop of generation :\n {e}\n")
+
+    # ====================================================================
 
 
 if __name__ == "__main__":
