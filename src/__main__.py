@@ -1,39 +1,31 @@
-from src.utils.file_to_json import get_items_from_json
-from src.utils.parser import parse_arguments
-from src.core.prompt_builder import PromptBuilder
+import sys
+from llm_sdk import Small_LLM_Model
+from src.core.generation_orchestrator import GenerationOrchestrator
+from src.utils.parser import get_args
 
 
 def main() -> None:
     try:
-        args = parse_arguments()
+        functions, prompts = get_args()
 
-        print("received paths :\n"
-              f"{args.functions_definition}\n"
-              f"{args.input}\n"
-              f"{args.output}\n\n")
+        if len(prompts) == 0:
+            raise ValueError("Please enter at least one prompt to "
+                             "start the program !")
 
-        validated_functions = get_items_from_json(
-            file_path=args.functions_definition,
-            item_type="func"
-        )
-        # functions = [f.model_dump() for f in validated_functions]
-
-        validated_prompts = get_items_from_json(
-            file_path=args.input,
-            item_type="prompt"
-        )
-        prompts = [f.model_dump_json() for f in validated_prompts]
-
-        prompter = PromptBuilder(validated_functions)
-
-        prompter.build_prompt(prompts[0])
-
-        # print(functions)
-        print("\n" + "="*40 + "\n")
-        # print(prompts)
-        print("\n" + "="*40 + "\n")
     except Exception as e:
-        print(f"[ERROR] {e}")
+        print("[ERROR] An error occured during "
+              f"parsing :\n {e}")
+        sys.exit(1)
+
+    # ==================================================================
+
+    try:
+        llm = Small_LLM_Model()
+        orchestrator = GenerationOrchestrator(llm)
+        orchestrator.run_generation(functions, prompts)
+    except Exception as e:
+        print("[ERROR] An error occured during initialization or "
+              f"running the main loop of generation :\n {e}")
 
 
 if __name__ == "__main__":
