@@ -1,4 +1,6 @@
 import argparse
+from src.utils.validators import FunctionValidator, PromptValidator
+from src.utils.file_to_json import get_items_from_json
 
 
 def parse_arguments():
@@ -34,3 +36,25 @@ def parse_arguments():
     args = parser.parse_args()
 
     return args
+
+
+def get_args() -> tuple[list[FunctionValidator], list[PromptValidator]]:
+    try:
+        args = parse_arguments()
+
+        validated_functions = get_items_from_json(
+            file_path=args.functions_definition,
+            item_type="func"
+        )
+        functions = [f.model_dump_json() for f in validated_functions]
+
+        validated_prompts = get_items_from_json(
+            file_path=args.input,
+            item_type="prompt"
+        )
+
+        prompts = [f.model_dump_json() for f in validated_prompts]
+
+        return (functions, prompts)
+    except Exception as e:
+        print(f"[ERROR] {e}")

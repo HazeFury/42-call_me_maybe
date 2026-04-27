@@ -1,11 +1,6 @@
-from src.utils.validators import ResultValidator, FunctionValidator
-
-
 class PromptBuilder:
-    def __init__(self, functions_defs, decoder: bool = False):
-        self.decoder = decoder
-        self._cache: dict[str, ResultValidator] = {}
-        self.functions_defs: list[FunctionValidator] = functions_defs
+    def __init__(self, functions_defs: list[dict[str, str]]):
+        self.functions_defs: list[dict[str, str]] = functions_defs
 
     def build_prompt(self, user_prompt: str) -> str:
 
@@ -16,13 +11,11 @@ class PromptBuilder:
             "keys 'name' and 'parameters'. Do not add any text before " \
             "or after.\n"
 
-        function_list: list[dict[str, str]] = [
-            f.model_dump_json() for f in self.functions_defs
-            ]
-        function_definitions: str = f"function definitions : {function_list}\n"
+        function_definitions: str = "function definitions :" \
+                                    f" {self.functions_defs}\n"
 
-        user_query: str = f"user query : {user_prompt}\n"
+        prompt = user_prompt.replace('{"prompt":"', "").replace('"}', "")
+        user_query: str = f"user query : {prompt}\n"
 
         final_prompt: str = role + function_definitions + user_query
-        print(final_prompt)
         return final_prompt
