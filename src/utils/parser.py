@@ -1,9 +1,10 @@
 import argparse
+from typing import cast
 from src.utils.validators import FunctionValidator, PromptValidator
 from src.utils.file_to_json import get_items_from_json
 
 
-def parse_arguments():
+def parse_arguments() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(
         description="Call Me Maybe - Constrained Decoding LLM Tool"
@@ -34,27 +35,27 @@ def parse_arguments():
     )
 
     args = parser.parse_args()
-
+    print(args)
     return args
 
 
 def get_args() -> tuple[list[FunctionValidator], list[PromptValidator]]:
-    try:
-        args = parse_arguments()
+    args = parse_arguments()
 
-        validated_functions = get_items_from_json(
+    validated_functions = cast(
+        list[FunctionValidator],
+        get_items_from_json(
             file_path=args.functions_definition,
             item_type="func"
         )
-        functions = [f.model_dump_json() for f in validated_functions]
+    )
 
-        validated_prompts = get_items_from_json(
+    validated_prompts = cast(
+        list[PromptValidator],
+        get_items_from_json(
             file_path=args.input,
             item_type="prompt"
         )
+    )
 
-        prompts = [f.model_dump_json() for f in validated_prompts]
-
-        return (functions, prompts)
-    except Exception as e:
-        print(f"[ERROR] {e}")
+    return (validated_functions, validated_prompts)

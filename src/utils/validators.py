@@ -4,7 +4,7 @@ from typing import Literal
 
 class ParameterValidator(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    type: Literal['number', 'string', 'boolean']
+    type: Literal['number', 'string', 'boolean', "integer", "float"]
 
 
 class FunctionValidator(BaseModel):
