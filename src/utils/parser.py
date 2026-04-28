@@ -35,7 +35,6 @@ def parse_arguments() -> argparse.Namespace:
     )
 
     args = parser.parse_args()
-    print(args)
     return args
 
 

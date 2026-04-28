@@ -27,7 +27,7 @@ def main() -> None:
         prompter = PromptBuilder(functions)
 
         orchestrator = GenerationOrchestrator(llm, prompter)
-        orchestrator.run_generation(prompts)
+        orchestrator.run_generation(prompts, functions)
     except Exception as e:
         print("[ERROR] An error occured during initialization or "
               f"running the main loop of generation :\n {e}\n")
