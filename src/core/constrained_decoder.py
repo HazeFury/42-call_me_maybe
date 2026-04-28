@@ -15,8 +15,8 @@ class ConstrainedDecoder:
             functions_defs: list[FunctionValidator]
             ):
         self.vocab_manager = vocab_manager
-        self.functions_catalog = functions_defs
-        self.state_sequence = [
+        self.function_names: list[str] = [f.name for f in functions_defs]
+        self.state_sequence: list[str] = [
             "OPENING_BRACE",
             "NAME_KEY",
             "FUNCTION_NAME",
@@ -24,15 +24,16 @@ class ConstrainedDecoder:
             "PARAMS_DICT",
             "CLOSING_BRACE"
         ]
-        self.state_target = {
+        self.state_target: dict[str, str] = {
             "OPENING_BRACE": "{",
             "NAME_KEY": '"name": "',
-            "PARAMS_KEY": '", "parameters": {',
+            "PARAMS_KEY": ', "parameters": {',
             "CLOSING_BRACE": "}"
         }
-        self.current_state_idx = 0
+        self.current_state_idx: int = 0
         self.state_buffer: str = ""
         self.generated_text: str = ""
+        self.chosen_function: str | None = None
 
     # ==========================================================================
 
@@ -53,6 +54,7 @@ class ConstrainedDecoder:
         self.current_state_idx = 0
         self.state_buffer = ""
         self.generated_text = ""
+        self.chosen_function = None
 
     # ==========================================================================
 
@@ -65,17 +67,22 @@ class ConstrainedDecoder:
         self.generated_text += new_token_string
         self.state_buffer += new_token_string
 
-        if self.current_state in self.state_target.keys():
+        if self.current_state in self.state_target:
 
             target = self.state_target[self.current_state]
 
             if self.state_buffer.strip() == target:
                 self.go_to_next_state()
 
-        elif self.current_state == "GENERATING_FUNCTION_NAME":
-            pass
+        elif self.current_state == "FUNCTION_NAME":
+            for func_name in self.function_names:
+                target = func_name + '"'
+                if self.state_buffer.strip() == target:
+                    self.go_to_next_state()
+                    self.chosen_function = func_name
+                    break
 
-        elif self.current_state == "GENERATING_PARAMS_DICT":
+        elif self.current_state == "PARAMS_DICT":
             pass
 
     # ==========================================================================
@@ -94,7 +101,7 @@ class ConstrainedDecoder:
                 logits[token_id] = -math.inf
                 continue
 
-            if self.current_state in self.state_target.keys():
+            if self.current_state in self.state_target:
 
                 target = self.state_target[self.current_state]
 
@@ -113,10 +120,22 @@ class ConstrainedDecoder:
                             simulated_buffer.startswith(target):
                         logits[token_id] = -math.inf
 
-            elif self.current_state == "GENERATING_FUNCTION_NAME":
-                pass
+            elif self.current_state == "FUNCTION_NAME":
+                is_valid = False
+                simulated_buffer = (self.state_buffer + string).lstrip()
 
-            elif self.current_state == "GENERATING_PARAMS_DICT":
+                for func_name in self.function_names:
+                    target = func_name + '"'
+
+                    if target.startswith(simulated_buffer) or \
+                            simulated_buffer.startswith(target):
+                        is_valid = True
+                        break
+
+                if not is_valid:
+                    logits[token_id] = -math.inf
+
+            elif self.current_state == "PARAMS_DICT":
                 pass
 
         return logits
