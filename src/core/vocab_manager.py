@@ -11,7 +11,6 @@ class VocabManager:
 
         try:
             with open(vocab_path, 'r', encoding="utf-8") as vocab_file:
-                # json.load reads directly from the file object
                 vocab: dict[str, int] = json.load(vocab_file)
 
                 self._id_to_token = {
@@ -39,9 +38,8 @@ class VocabManager:
         Raises a KeyError if the token_id is not in the vocabulary.
         """
         if token_id not in self._id_to_token:
-            raise KeyError(f"Token ID {token_id} not found in vocabulary.")
+            return None
 
         raw_string = self._id_to_token[token_id]
 
-        # We chain our cleaning function before returning the final text
         return self._clean_token_string(raw_string)

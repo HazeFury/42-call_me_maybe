@@ -3,7 +3,10 @@ from src.core.prompt_builder import PromptBuilder
 from src.utils.validators import (
         ResultValidator,
         PromptValidator,
+        FunctionValidator
 )
+from src.core.constrained_decoder import ConstrainedDecoder
+from src.core.vocab_manager import VocabManager
 
 
 class GenerationOrchestrator:
@@ -12,30 +15,40 @@ class GenerationOrchestrator:
         self.prompter: PromptBuilder = prompter
         self._cache: dict[str, ResultValidator] = {}
 
-    def run_generation(self, prompts: list[PromptValidator]) -> None:
+    def run_generation(
+            self,
+            prompts: list[PromptValidator],
+            functions: list[FunctionValidator]
+            ) -> None:
         """Iterates over all prompts and runs the basic LLM generation loop."""
+        vocab_path = self.llm.get_path_to_vocab_file()
+        vocab_manager = VocabManager(vocab_path)
+
+        decoder = ConstrainedDecoder(
+            vocab_manager=vocab_manager,
+            functions_defs=functions
+            )
 
         for prompt in prompts:
             current_prompt = self.prompter.build_prompt(prompt)
             print(f"--- Processing query: {prompt.prompt} ---")
 
-            # 1. Encode text to tokens
             input_tensor = self.llm.encode(current_prompt)
             input_ids = input_tensor[0].tolist()
-            print(f"debut : {input_ids}\n\n")
-            print("Output: ", end="", flush=True)
 
-            # 2. Generate tokens one by one (max 60 for testing)
-            for _ in range(1):
+            print("Output: ", end="", flush=True)
+            decoder.reset_state()
+
+            for _ in range(40):
                 logits = self.llm.get_logits_from_input_ids(input_ids)
 
-                # Greedy decoding: taking the highest probability token
+                logits = decoder.filter_logits(logits)
+
                 next_token_id = logits.index(max(logits))
                 input_ids.append(next_token_id)
-                print(f"apres : {input_ids}\n\n")
 
-                # Decode and print the new token directly
                 new_word = self.llm.decode([next_token_id])
-                print(new_word, end="", flush=True)
+                decoder.update_state(new_word)
 
+                print(new_word, end="", flush=True)
             print("\n" + "="*50 + "\n")
