@@ -39,7 +39,7 @@ class GenerationOrchestrator:
             print("Output: ", end="", flush=True)
             decoder.reset_state()
 
-            for _ in range(40):
+            while decoder.current_state != "DONE":
                 logits = self.llm.get_logits_from_input_ids(input_ids)
 
                 logits = decoder.filter_logits(logits)
