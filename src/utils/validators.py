@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Literal
+from typing import Literal, Any
 
 
 class ParameterValidator(BaseModel):
@@ -23,3 +23,14 @@ class ResultValidator(BaseModel):
     prompt: str = Field(..., min_length=1)
     name: str = Field(..., min_length=1)
     parameters: dict[str, float | int | bool | str]
+
+
+def format_and_cast_results(
+        content: list[dict[str, Any]],
+        function_defs: list[FunctionValidator]
+        ) -> list[dict[str, Any]]:
+    """
+    Verifies the type of parameters for each result and casts them if
+    necessary.
+    """
+    pass

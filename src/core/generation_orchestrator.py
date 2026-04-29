@@ -7,6 +7,7 @@ from src.utils.validators import (
 )
 from src.core.constrained_decoder import ConstrainedDecoder
 from src.core.vocab_manager import VocabManager
+from src.utils.file_handler import format_final_result
 
 
 class GenerationOrchestrator:
@@ -19,7 +20,7 @@ class GenerationOrchestrator:
             self,
             prompts: list[PromptValidator],
             functions: list[FunctionValidator]
-            ) -> None:
+            ) -> list[dict[str, str | int]]:
         """Iterates over all prompts and runs the basic LLM generation loop."""
         vocab_path = self.llm.get_path_to_vocab_file()
         vocab_manager = VocabManager(vocab_path)
@@ -28,6 +29,7 @@ class GenerationOrchestrator:
             vocab_manager=vocab_manager,
             functions_defs=functions
             )
+        result: list[dict[str, str | int]] = []
 
         for prompt in prompts:
             current_prompt = self.prompter.build_prompt(prompt)
@@ -52,3 +54,8 @@ class GenerationOrchestrator:
 
                 print(new_word, end="", flush=True)
             print("\n" + "="*50 + "\n")
+
+            tmp = format_final_result(prompt, decoder.generated_text)
+            result.append(tmp)
+
+        return result

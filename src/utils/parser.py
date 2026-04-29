@@ -1,7 +1,7 @@
 import argparse
 from typing import cast
 from src.utils.validators import FunctionValidator, PromptValidator
-from src.utils.file_to_json import get_items_from_json
+from src.utils.file_handler import get_items_from_json
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -38,7 +38,7 @@ def parse_arguments() -> argparse.Namespace:
     return args
 
 
-def get_args() -> tuple[list[FunctionValidator], list[PromptValidator]]:
+def get_args() -> tuple[list[FunctionValidator], list[PromptValidator], str]:
     args = parse_arguments()
 
     validated_functions = cast(
@@ -57,4 +57,6 @@ def get_args() -> tuple[list[FunctionValidator], list[PromptValidator]]:
         )
     )
 
-    return (validated_functions, validated_prompts)
+    output_path: str = args.output
+
+    return (validated_functions, validated_prompts, output_path)

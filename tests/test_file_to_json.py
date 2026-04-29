@@ -2,7 +2,7 @@ import os
 import pytest
 from pathlib import Path
 from pydantic import ValidationError
-from src.utils.file_to_json import parse_file_to_json, get_items_from_json
+from src.utils.file_handler import parse_file_to_json, get_items_from_json
 
 # ==========================================
 # TESTS FOR parse_file_to_json
