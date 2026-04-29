@@ -23,22 +23,23 @@ class ConstrainedDecoder:
             "NAME_KEY",
             "FUNCTION_NAME",
             "PARAMS_KEY",
-            "PARAM_KEY",    # Ping
-            "PARAM_VALUE",  # Pong
-            "DONE"          # End of generation
+            "PARAM_KEY",
+            "PARAM_VALUE",
+            "CLOSING_BRACE",
+            "DONE"
         ]
 
         self.state_target = {
             "OPENING_BRACE": "{",
             "NAME_KEY": '"name": "',
-            "PARAMS_KEY": ', "parameters": {'
+            "PARAMS_KEY": ', "parameters": {',
+            "CLOSING_BRACE": "}"
         }
 
         self.current_state_idx = 0
         self.state_buffer: str = ""
         self.generated_text: str = ""
 
-        # Memory for the dynamic parameter generation
         self.chosen_function: str | None = None
         self.params_queue: list[tuple[str, str]] = []
         self.current_param: tuple[str, str] | None = None
@@ -56,14 +57,12 @@ class ConstrainedDecoder:
         """Jump to a specific state by name."""
         self.current_state_idx = self.state_sequence.index(state_name)
         self.state_buffer = ""
-        print(f"\n--- [DEBUG-FSM] Transitioned to: {self.current_state}")
 
     def go_to_next_state(self) -> None:
         """Go to the next sequential state."""
         if self.current_state_idx < len(self.state_sequence) - 1:
             self.current_state_idx += 1
             self.state_buffer = ""
-            print(f"\n--- [DEBUG-FSM] Transitioned to: {self.current_state}")
 
     def reset_state(self) -> None:
         """Reset the state machine."""
@@ -86,12 +85,13 @@ class ConstrainedDecoder:
         """
         for func in self.functions_catalog:
             if func.name == func_name:
-                # Example extraction(adapt based on your exact Pydantic schema)
-                # We expect list of tuples: [("a", "integer"), ("b", "string")]
-                properties = func.parameters.get("properties", {})
-                for key, details in properties.items():
-                    param_type = details.get("type", "string")
-                    self.params_queue.append((key, param_type))
+
+                for param_name, param_validator in func.parameters.items():
+
+                    param_type = param_validator.type
+
+                    self.params_queue.append((param_name, param_type))
+
                 break
 
     # ==========================================================================
@@ -152,7 +152,7 @@ class ConstrainedDecoder:
                     self.set_state("PARAM_KEY")
                 else:
                     # The JSON is complete!
-                    self.set_state("DONE")
+                    self.set_state("CLOSING_BRACE")
 
     def filter_logits(self, logits: list[float]) -> list[float]:
         """
@@ -170,7 +170,7 @@ class ConstrainedDecoder:
 
             if self.current_state in self.state_target:
                 target = self.state_target[self.current_state]
-                if self.current_state == "OPENING_BRACE":
+                if self.current_state in ("OPENING_BRACE", "CLOSING_BRACE"):
                     if string.strip() != "" and string.strip() != target:
                         logits[token_id] = -math.inf
                 else:

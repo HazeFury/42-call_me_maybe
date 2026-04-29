@@ -39,7 +39,7 @@ class GenerationOrchestrator:
             print("Output: ", end="", flush=True)
             decoder.reset_state()
 
-            while True:
+            while decoder.current_state != "DONE":
                 logits = self.llm.get_logits_from_input_ids(input_ids)
 
                 logits = decoder.filter_logits(logits)
@@ -51,6 +51,4 @@ class GenerationOrchestrator:
                 decoder.update_state(new_word)
 
                 print(new_word, end="", flush=True)
-                if decoder.current_state == "DONE":
-                    break
             print("\n" + "="*50 + "\n")
