@@ -19,8 +19,6 @@ class ConstrainedDecoder:
 
         # Adding the Ping-Pong states for parameters
         self.state_sequence = [
-            "OPENING_BRACE",
-            "NAME_KEY",
             "FUNCTION_NAME",
             "PARAMS_KEY",
             "PARAM_KEY",
@@ -29,16 +27,9 @@ class ConstrainedDecoder:
             "DONE"
         ]
 
-        self.state_target = {
-            "OPENING_BRACE": "{",
-            "NAME_KEY": '"name": "',
-            "PARAMS_KEY": ', "parameters": {',
-            "CLOSING_BRACE": "}"
-        }
-
         self.current_state_idx = 0
         self.state_buffer: str = ""
-        self.generated_text: str = ""
+        self.generated_text: str = '{ "name": "'
 
         self.chosen_function: str | None = None
         self.params_queue: list[tuple[str, str]] = []
@@ -57,18 +48,20 @@ class ConstrainedDecoder:
         """Jump to a specific state by name."""
         self.current_state_idx = self.state_sequence.index(state_name)
         self.state_buffer = ""
+        print(f"[DEBUG] just switch to {self.current_state}")
 
     def go_to_next_state(self) -> None:
         """Go to the next sequential state."""
         if self.current_state_idx < len(self.state_sequence) - 1:
             self.current_state_idx += 1
             self.state_buffer = ""
+            print(f"[DEBUG] just switch to {self.current_state}")
 
     def reset_state(self) -> None:
         """Reset the state machine."""
         self.current_state_idx = 0
         self.state_buffer = ""
-        self.generated_text = ""
+        self.generated_text = '{ "name": "'
         self.chosen_function = None
         self.params_queue.clear()
         self.current_param = None
@@ -106,12 +99,7 @@ class ConstrainedDecoder:
         self.generated_text += new_token_string
         self.state_buffer += new_token_string
 
-        if self.current_state in self.state_target:
-            target = self.state_target[self.current_state]
-            if self.state_buffer.strip() == target:
-                self.go_to_next_state()
-
-        elif self.current_state == "FUNCTION_NAME":
+        if self.current_state == "FUNCTION_NAME":
             for func in self.functions_catalog:
                 target = func.name + '"'
                 if self.state_buffer.strip() == target:
@@ -120,39 +108,34 @@ class ConstrainedDecoder:
                     self.go_to_next_state()
                     break
 
+        elif self.current_state == "PARAMS_KEY":
+            self.go_to_next_state()
+
         elif self.current_state == "PARAM_KEY":
-            # If we don't have a current parameter, pop one from the queue
-            if not self.current_param and self.params_queue:
-                self.current_param = self.params_queue.pop(0)
-
-            # If the queue was empty and we have no param, we jump to end!
-            if not self.current_param:
-                self.set_state("DONE")
-                return
-
-            # We expect the LLM to write: '"param_name": '
-            target_key = f'"{self.current_param[0]}":'
-
-            # Using replace to ignore spaces the LLM might add around the colon
-            buffer_no_spaces = self.state_buffer.replace(" ", "").strip()
-
-            if buffer_no_spaces == target_key:
-                self.go_to_next_state()  # Goes to PARAM_VALUE
+            self.go_to_next_state()  # Goes to PARAM_VALUE
 
         elif self.current_state == "PARAM_VALUE":
-            # What is the character that ends this value?
-            terminal_char = "," if self.params_queue else "}"
+            if len(self.params_queue) == 0:
+                self.set_state("CLOSING_BRACE")
+            else:
+                self.set_state("PARAM_KEY")
 
-            # If the LLM generates the terminal character, we switch states
-            if self.state_buffer.strip().endswith(terminal_char):
-                self.current_param = None  # Clear current parameter
+            # # What is the character that ends this value?
+            # terminal_char = "," if self.params_queue else "}"
 
-                if terminal_char == ",":
-                    # Ping-pong back to PARAM_KEY for the next parameter
-                    self.set_state("PARAM_KEY")
-                else:
-                    # The JSON is complete!
-                    self.set_state("CLOSING_BRACE")
+            # # If the LLM generates the terminal character, we switch states
+            # if self.state_buffer.strip().endswith(terminal_char):
+            #     self.current_param = None  # Clear current parameter
+
+            #     if terminal_char == ",":
+            #         # Ping-pong back to PARAM_KEY for the next parameter
+            #         self.set_state("PARAM_KEY")
+            #     else:
+            #         # The JSON is complete!
+            #         self.set_state("CLOSING_BRACE")
+
+        elif self.current_state == "CLOSING_BRACE":
+            self.go_to_next_state()
 
     def filter_logits(self, logits: list[float]) -> list[float]:
         """
@@ -168,16 +151,7 @@ class ConstrainedDecoder:
 
             simulated_buffer = (self.state_buffer + string).lstrip()
 
-            if self.current_state in self.state_target:
-                target = self.state_target[self.current_state]
-                if self.current_state in ("OPENING_BRACE", "CLOSING_BRACE"):
-                    if string.strip() != "" and string.strip() != target:
-                        logits[token_id] = -math.inf
-                else:
-                    if not target.startswith(simulated_buffer):
-                        logits[token_id] = -math.inf
-
-            elif self.current_state == "FUNCTION_NAME":
+            if self.current_state == "FUNCTION_NAME":
                 is_valid = False
                 for func in self.functions_catalog:
                     target = func.name + '"'
@@ -187,16 +161,6 @@ class ConstrainedDecoder:
                         break
                 if not is_valid:
                     logits[token_id] = -math.inf
-
-            elif self.current_state == "PARAM_KEY":
-                if self.current_param:
-                    # We tolerate spaces, so we remove them for strict check
-                    target = f'"{self.current_param[0]}":'
-                    sim_no_spaces = simulated_buffer.replace(" ", "")
-
-                    if not target.startswith(sim_no_spaces) and not \
-                            sim_no_spaces.startswith(target):
-                        logits[token_id] = -math.inf
 
             elif self.current_state == "PARAM_VALUE":
                 # 1. Prevent early termination

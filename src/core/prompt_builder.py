@@ -28,5 +28,7 @@ class PromptBuilder:
 
         user_query: str = f"user query: {user_prompt.prompt}\n"
 
-        final_prompt: str = role + function_definitions + user_query
+        start: str = 'start : ```JSON\n{ "name": "'
+
+        final_prompt: str = role + function_definitions + user_query + start
         return final_prompt
