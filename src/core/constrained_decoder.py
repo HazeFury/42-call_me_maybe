@@ -48,14 +48,14 @@ class ConstrainedDecoder:
         """Jump to a specific state by name."""
         self.current_state_idx = self.state_sequence.index(state_name)
         self.state_buffer = ""
-        print(f"[DEBUG] just switch to {self.current_state}")
+        # print(f"[DEBUG] just switch to {self.current_state}")
 
     def go_to_next_state(self) -> None:
         """Go to the next sequential state."""
         if self.current_state_idx < len(self.state_sequence) - 1:
             self.current_state_idx += 1
             self.state_buffer = ""
-            print(f"[DEBUG] just switch to {self.current_state}")
+            # print(f"[DEBUG] just switch to {self.current_state}")
 
     def reset_state(self) -> None:
         """Reset the state machine."""
@@ -115,24 +115,19 @@ class ConstrainedDecoder:
             self.go_to_next_state()  # Goes to PARAM_VALUE
 
         elif self.current_state == "PARAM_VALUE":
-            if len(self.params_queue) == 0:
-                self.set_state("CLOSING_BRACE")
-            else:
-                self.set_state("PARAM_KEY")
+            # What is the character that ends this value?
+            terminal_char = "," if self.params_queue else "}"
 
-            # # What is the character that ends this value?
-            # terminal_char = "," if self.params_queue else "}"
+            # If the LLM generates the terminal character, we switch states
+            if self.state_buffer.strip().endswith(terminal_char):
+                self.current_param = None  # Clear current parameter
 
-            # # If the LLM generates the terminal character, we switch states
-            # if self.state_buffer.strip().endswith(terminal_char):
-            #     self.current_param = None  # Clear current parameter
-
-            #     if terminal_char == ",":
-            #         # Ping-pong back to PARAM_KEY for the next parameter
-            #         self.set_state("PARAM_KEY")
-            #     else:
-            #         # The JSON is complete!
-            #         self.set_state("CLOSING_BRACE")
+                if terminal_char == ",":
+                    # Ping-pong back to PARAM_KEY for the next parameter
+                    self.set_state("PARAM_KEY")
+                else:
+                    # The JSON is complete!
+                    self.set_state("CLOSING_BRACE")
 
         elif self.current_state == "CLOSING_BRACE":
             self.go_to_next_state()
@@ -183,14 +178,24 @@ class ConstrainedDecoder:
                         logits[token_id] = -math.inf
 
                 elif param_type == "string":
-                    # It's a string. It must be wrapped in quotes.
-                    # For a robust implementation, we would count quotes here.
-                    # As a baseline: if we see the terminal char, ensure it
-                    #  comes AFTER a quote
-                    if terminal_char in string:
-                        # E.g., if string is '",', it's valid. If it's
-                        # just ',', it's missing the closing quote.
-                        if '"' not in simulated_buffer:
+                    # 1. Force the string to open with a quote
+                    if self.state_buffer.strip() == "":
+                        # If the buffer is empty, the token MUST be a quote
+                        # (or space before quote)
+                        if not string.lstrip().startswith('"') and \
+                                string.strip() != "":
                             logits[token_id] = -math.inf
+                            continue  # Move to the next token in the loop
+
+                    # 2. If the LLM generates the terminal char, ensure the
+                    # string was properly closed
+                    if terminal_char in string:
+                        # Since state_buffer started empty in PARAM_VALUE,
+                        #  a valid and closed
+                        # string MUST have at least 2 quotes
+                        # (one opening, one closing).
+                        if simulated_buffer.count('"') < 2:
+                            logits[token_id] = -math.inf
+                            continue  # Reject, the string isn't closed yet!
 
         return logits

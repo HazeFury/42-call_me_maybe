@@ -26,12 +26,14 @@ class GenerationOrchestrator:
         Add tokens to context if the state permit it in order to gain time.
         """
         if decoder.current_state == "PARAM_KEY":
-            current_param = decoder.params_queue.pop(0)
+            if decoder.params_queue:
+                decoder.current_param = decoder.params_queue.pop(0)
 
-            param_text = f' "{current_param[0]}": '
+            param_text = f' "{decoder.current_param[0]}": '
             param_tensor = self.llm.encode(param_text)
             param_ids = param_tensor[0].tolist()
-            [self.input_ids.append(x) for x in param_ids]
+
+            self.input_ids.extend(param_ids)
             decoder.update_state(param_text)
             return True
 
@@ -40,7 +42,7 @@ class GenerationOrchestrator:
 
             parameter_tensor = self.llm.encode(parameter_text)
             parameter_ids = parameter_tensor[0].tolist()
-            [self.input_ids.append(x) for x in parameter_ids]
+            self.input_ids.extend(parameter_ids)
             decoder.update_state(parameter_text)
             return True
 
@@ -91,8 +93,8 @@ class GenerationOrchestrator:
                 decoder.update_state(new_word)
                 i += 1
                 # print(new_word, end="", flush=True)
+            print(f"\nresult : '{decoder.generated_text}'")
             print("\n" + "="*50 + "\n")
-            print(f"#{i} : '{decoder.generated_text}'")
             tmp = format_final_result(prompt, decoder.generated_text)
             result.append(tmp)
 
