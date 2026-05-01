@@ -8,6 +8,7 @@ from src.utils.validators import (
 from src.core.constrained_decoder import ConstrainedDecoder
 from src.core.vocab_manager import VocabManager
 from src.utils.file_handler import format_final_result
+from typing import Any
 
 
 class GenerationOrchestrator:
@@ -15,6 +16,41 @@ class GenerationOrchestrator:
         self.llm: Small_LLM_Model = llm
         self.prompter: PromptBuilder = prompter
         self._cache: dict[str, ResultValidator] = {}
+        self.input_ids: Any = []
+
+    def add_tokens_to_context_if_possible(
+            self,
+            decoder: ConstrainedDecoder
+            ) -> bool:
+        """
+        Add tokens to context if the state permit it in order to gain time.
+        """
+        if decoder.current_state == "PARAM_KEY":
+            if decoder.params_queue:
+                decoder.current_param = decoder.params_queue.pop(0)
+
+            param_text = f' "{decoder.current_param[0]}": '
+            param_tensor = self.llm.encode(param_text)
+            param_ids = param_tensor[0].tolist()
+
+            self.input_ids.extend(param_ids)
+            decoder.update_state(param_text)
+            return True
+
+        elif decoder.current_state == "PARAMS_KEY":
+            parameter_text: str = ', "parameters": {'
+
+            parameter_tensor = self.llm.encode(parameter_text)
+            parameter_ids = parameter_tensor[0].tolist()
+            self.input_ids.extend(parameter_ids)
+            decoder.update_state(parameter_text)
+            return True
+
+        elif decoder.current_state == "CLOSING_BRACE":
+            decoder.update_state(" }")
+            return True
+
+        return False
 
     def run_generation(
             self,
@@ -36,25 +72,29 @@ class GenerationOrchestrator:
             print(f"--- Processing query: {prompt.prompt} ---")
 
             input_tensor = self.llm.encode(current_prompt)
-            input_ids = input_tensor[0].tolist()
+            self.input_ids = input_tensor[0].tolist()
 
-            print("Output: ", end="", flush=True)
+            # print("Output: ", end="", flush=True)
             decoder.reset_state()
 
+            i = 0
             while decoder.current_state != "DONE":
-                logits = self.llm.get_logits_from_input_ids(input_ids)
+                print(f"#{i} : '{decoder.generated_text}'")
+                if self.add_tokens_to_context_if_possible(decoder):
+                    continue
+                logits = self.llm.get_logits_from_input_ids(self.input_ids)
 
                 logits = decoder.filter_logits(logits)
 
                 next_token_id = logits.index(max(logits))
-                input_ids.append(next_token_id)
+                self.input_ids.append(next_token_id)
 
                 new_word = self.llm.decode([next_token_id])
                 decoder.update_state(new_word)
-
-                print(new_word, end="", flush=True)
+                i += 1
+                # print(new_word, end="", flush=True)
+            print(f"\nresult : '{decoder.generated_text}'")
             print("\n" + "="*50 + "\n")
-
             tmp = format_final_result(prompt, decoder.generated_text)
             result.append(tmp)
 

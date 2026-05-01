@@ -62,7 +62,7 @@ def main() -> None:
         print("[SUCCESS] Everything went well :) You will found your output in"
               f"following path :\n {output_path}")
         execution_time: float = end_time - start_time
-        print(f"Spell completed in {execution_time:.5f} seconds")
+        print(f"Processed all prompts in {execution_time:.5f} seconds")
 
 
 if __name__ == "__main__":
