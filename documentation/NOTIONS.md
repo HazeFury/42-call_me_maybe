@@ -2,10 +2,11 @@
 
 ## Sommaire
 
-1. Partie 1
-2. Partie 2
-3. Partie 3
-4. Partie 4
+1. What is a llm ?
+2. Tokens
+3. Logits
+4. Constrained Decoding
+5. Optimization
 
 ## Partie 1
 
