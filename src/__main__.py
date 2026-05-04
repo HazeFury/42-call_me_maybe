@@ -28,7 +28,7 @@ def main() -> None:
     try:
         llm = Small_LLM_Model()
 
-        prompter = PromptBuilder(functions)
+        prompter = PromptBuilder(llm, functions)
 
         orchestrator = GenerationOrchestrator(llm, prompter)
         raw_json = orchestrator.run_generation(prompts, functions)

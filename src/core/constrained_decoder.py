@@ -1,4 +1,5 @@
 import math
+import numpy as np
 from src.core.vocab_manager import VocabManager
 from src.utils.validators import FunctionValidator
 
@@ -132,30 +133,30 @@ class ConstrainedDecoder:
         elif self.current_state == "CLOSING_BRACE":
             self.go_to_next_state()
 
-    def filter_logits(self, logits: list[float]) -> list[float]:
+    def filter_logits(self, logits: list[float]) -> np.ndarray:
         """
         Evaluates all possible next tokens against the current state.
         Sets the logit to -math.inf for any token that violates the rules.
         """
-        for token_id in range(len(logits)):
-            string = self.vocab_manager.get_token_string(token_id)
 
+        valid_ids: list[int] = []
+
+        for token_id, string in self.vocab_manager.clean_id_to_token.items():
             if string is None:
-                logits[token_id] = -math.inf
                 continue
 
             simulated_buffer = (self.state_buffer + string).lstrip()
 
             if self.current_state == "FUNCTION_NAME":
-                is_valid = False
+                is_valid_func = False
                 for func in self.functions_catalog:
                     target = func.name + '"'
 
                     if target.startswith(simulated_buffer):
-                        is_valid = True
+                        is_valid_func = True
                         break
-                if not is_valid:
-                    logits[token_id] = -math.inf
+                if not is_valid_func:
+                    continue
 
             elif self.current_state == "PARAM_VALUE":
                 # 1. Prevent early termination
@@ -163,7 +164,6 @@ class ConstrainedDecoder:
                 wrong_terminal = "}" if terminal_char == "," else ","
 
                 if wrong_terminal in string:
-                    logits[token_id] = -math.inf
                     continue
 
                 # 2. Basic Type Enforcement
@@ -175,7 +175,7 @@ class ConstrainedDecoder:
                     # and the correct terminal char
                     allowed_chars = "0123456789. " + terminal_char
                     if any(char not in allowed_chars for char in string):
-                        logits[token_id] = -math.inf
+                        continue
 
                 elif param_type == "string":
                     # 1. Force the string to open with a quote
@@ -184,7 +184,6 @@ class ConstrainedDecoder:
                         # (or space before quote)
                         if not string.lstrip().startswith('"') and \
                                 string.strip() != "":
-                            logits[token_id] = -math.inf
                             continue  # Move to the next token in the loop
 
                     # 2. If the LLM generates the terminal char, ensure the
@@ -195,7 +194,15 @@ class ConstrainedDecoder:
                         # string MUST have at least 2 quotes
                         # (one opening, one closing).
                         if simulated_buffer.count('"') < 2:
-                            logits[token_id] = -math.inf
                             continue  # Reject, the string isn't closed yet!
 
-        return logits
+            valid_ids.append(token_id)
+
+        # 4. Numpy Magic: Vectorized Masking
+        np_logits = np.array(logits)
+        masked_logits = np.full(len(logits), -math.inf)
+
+        # Keep original probabilities only for valid tokens
+        masked_logits[valid_ids] = np_logits[valid_ids]
+
+        return masked_logits
