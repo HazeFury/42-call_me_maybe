@@ -1,3 +1,4 @@
+import numpy as np
 from llm_sdk import Small_LLM_Model  # type: ignore
 from src.core.prompt_builder import PromptBuilder
 from src.utils.validators import (
@@ -67,12 +68,19 @@ class GenerationOrchestrator:
             )
         result: list[dict[str, str | int]] = []
 
+        global_prompt = self.prompter.build_prompt()
+
+        global_input_tensor = self.llm.encode(global_prompt)
+        cached_global_ids = global_input_tensor[0].tolist()
+
         for prompt in prompts:
-            current_prompt = self.prompter.build_prompt(prompt)
+            current_prompt = self.prompter.prepare_user_query(prompt)
             print(f"--- Processing query: {prompt.prompt} ---")
 
             input_tensor = self.llm.encode(current_prompt)
-            self.input_ids = input_tensor[0].tolist()
+            user_input_ids = input_tensor[0].tolist()
+
+            self.input_ids = cached_global_ids + user_input_ids
 
             # print("Output: ", end="", flush=True)
             decoder.reset_state()
@@ -82,19 +90,19 @@ class GenerationOrchestrator:
                 print(f"#{i} : '{decoder.generated_text}'")
                 if self.add_tokens_to_context_if_possible(decoder):
                     continue
-                logits = self.llm.get_logits_from_input_ids(self.input_ids)
+                raw_logits = self.llm.get_logits_from_input_ids(self.input_ids)
 
-                logits = decoder.filter_logits(logits)
+                filtered_logits_np = decoder.filter_logits(raw_logits)
 
-                next_token_id = logits.index(max(logits))
+                next_token_id = int(np.argmax(filtered_logits_np))
                 self.input_ids.append(next_token_id)
 
                 new_word = self.llm.decode([next_token_id])
                 decoder.update_state(new_word)
                 i += 1
                 # print(new_word, end="", flush=True)
-            print(f"\nresult : '{decoder.generated_text}'")
-            print("\n" + "="*50 + "\n")
+            # print(f"\nresult : '{decoder.generated_text}'")
+            # print("\n" + "="*50 + "\n")
             tmp = format_final_result(prompt, decoder.generated_text)
             result.append(tmp)
 
