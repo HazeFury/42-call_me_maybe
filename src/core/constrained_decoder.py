@@ -1,4 +1,4 @@
-import math
+import numpy as np
 from src.core.vocab_manager import VocabManager
 from src.utils.validators import FunctionValidator
 
@@ -132,7 +132,7 @@ class ConstrainedDecoder:
         elif self.current_state == "CLOSING_BRACE":
             self.go_to_next_state()
 
-    def filter_logits(self, logits: list[float]) -> list[float]:
+    def filter_logits(self, logits: np.ndarray) -> np.ndarray:
         """
         Evaluates next tokens using optimized pre-computed sets for O(1)
         matching on numbers and booleans, drastically reducing inference time.
@@ -214,9 +214,11 @@ class ConstrainedDecoder:
         # =====================================================================
         # FAST NATIVE MASKING (Pure Python, No Numpy overhead)
         # =====================================================================
-        masked_logits = [-math.inf] * len(logits)
+        mask = np.full(logits.shape, -1e11, dtype=np.float32)
 
-        for valid_index in valid_ids:
-            masked_logits[valid_index] = logits[valid_index]
+        # 2. Vectorized assignment: copy all valid probabilities at once!
+        # This is the true power of NumPy, replacing the Python 'for' loop.
+        if valid_ids:
+            mask[valid_ids] = logits[valid_ids]
 
-        return masked_logits
+        return mask
