@@ -32,7 +32,7 @@ def main() -> None:
     # # =========================  GENERATION  =============================
 
     try:
-        print("STEP 2 : Instanciate the llm and other needed tools")
+        print("STEP 2 : Instanciate the LLM and other needed tools")
         llm = Small_LLM_Model()
 
         prompter = PromptBuilder(llm, functions)
@@ -40,13 +40,15 @@ def main() -> None:
         orchestrator = GenerationOrchestrator(llm, prompter)
         print("\033[92m[SUCCESS]\033[0m STEP 2 completed without error")
         print("\n\033[34m===========================================\033[0m\n")
-        print(f"STEP 3 : Starting the process on {len(prompts)} prompts.")
+        print(f"STEP 3 : Starting the process on {len(prompts)} prompts."
+              "(Be patient, this may take a few minutes)\n")
 
         start_time: float = time.time()
         raw_json = orchestrator.run_generation(prompts, functions)
+        end_time: float = time.time()
     except Exception as e:
-        print("[ERROR] An error occured during initialization or "
-              f"running the main loop of generation :\n => {e}\n")
+        print("\033[91m[ERROR]\033[0m An error occured during the run of the"
+              f" main loop of generation :\n => {e}\n")
         sys.exit(1)
     else:
         print("\033[92m[SUCCESS]\033[0m STEP 3 completed without error")
@@ -55,33 +57,30 @@ def main() -> None:
     # # =========================  EXPORTING  ==============================
 
     try:
-        print("\n\n" + "#"*50 + "\n\n")
-        print(raw_json)
-        print("\n\n")
-
+        print("STEP 4 : Verifying result and exporting it to json file")
         type_checked_raw_json = format_and_cast_results(
             content=raw_json,
             function_defs=functions
             )
 
-        print("\n\n" + "#"*50 + "\n\n")
-        print(type_checked_raw_json)
-        print("\n\n")
-
         export_json_to_file(
             content=type_checked_raw_json,
             path=output_path)
 
-        end_time: float = time.time()
+        print("\033[92m[SUCCESS]\033[0m STEP 4 completed without error")
+        print("\n\033[34m===========================================\033[0m\n")
+
     except Exception as e:
-        print("[ERROR] An error occured during the last check and "
-              f"exporting to file :\n => {e}\n")
+        print("\033[91m[ERROR]\033[0m An error occured during the last check"
+              f" and/or export to file process :\n => {e}\n")
         sys.exit(1)
     else:
-        print("[SUCCESS] Everything went well :) You will found your output in"
-              f"following path :\n {output_path}")
-        execution_time: float = end_time - start_time
-        print(f"Processed all prompts in {execution_time:.5f} seconds")
+        print("\033[92m[SUCCESS]\033[0m All jobs completed successfully :)\n"
+              f"Output file path : \033[35m{output_path}\033[0m")
+        exec_time: float = end_time - start_time
+        time_in_minutes = f"{int(exec_time // 60)}m{int(exec_time % 60)}"
+        print(f"Time of process : \033[35m{exec_time:.5f} seconds "
+              f"({time_in_minutes})\033[0m\n")
 
 
 if __name__ == "__main__":

@@ -80,7 +80,7 @@ class GenerationOrchestrator:
             start_time: float = time.time()
             current_prompt = self.prompter.prepare_user_query(prompt)
             print(f"[{i+1}/{prompt_len}] Processing query: '{prompt.prompt}'",
-                  end="")
+                  end="", flush=True)
 
             input_tensor = self.llm.encode(current_prompt)
             user_input_ids = input_tensor[0].tolist()
