@@ -87,10 +87,18 @@ class GenerationOrchestrator:
 
             i = 0
             while decoder.current_state != "DONE":
-                print(f"#{i} : '{decoder.generated_text}'")
+                # print(f"#{i} : '{decoder.generated_text}'")
                 if self.add_tokens_to_context_if_possible(decoder):
                     continue
-                raw_logits = self.llm.get_logits_from_input_ids(self.input_ids)
+
+                raw_logits = np.array(
+                    self.llm.get_logits_from_input_ids(self.input_ids),
+                    dtype=np.float32
+                )
+                # Flatten the tensor if the model returns a sequence of logits.
+                # We only care about the very last token's probabilities.
+                while len(raw_logits.shape) > 1:
+                    raw_logits = raw_logits[-1]
 
                 filtered_logits_np = decoder.filter_logits(raw_logits)
 
