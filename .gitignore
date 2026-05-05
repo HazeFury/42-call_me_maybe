@@ -11,9 +11,12 @@ wheels/
 # Virtual environments
 .venv
 
-#IA specific
+# IA specific
 hf_cache/
 hf_home/
 models/
 *.bin
 *.safetensors
+
+# Output file
+data/output

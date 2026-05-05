@@ -1,4 +1,4 @@
-import math
+import numpy as np
 from src.core.vocab_manager import VocabManager
 from src.utils.validators import FunctionValidator
 
@@ -19,8 +19,6 @@ class ConstrainedDecoder:
 
         # Adding the Ping-Pong states for parameters
         self.state_sequence = [
-            "OPENING_BRACE",
-            "NAME_KEY",
             "FUNCTION_NAME",
             "PARAMS_KEY",
             "PARAM_KEY",
@@ -29,16 +27,9 @@ class ConstrainedDecoder:
             "DONE"
         ]
 
-        self.state_target = {
-            "OPENING_BRACE": "{",
-            "NAME_KEY": '"name": "',
-            "PARAMS_KEY": ', "parameters": {',
-            "CLOSING_BRACE": "}"
-        }
-
         self.current_state_idx = 0
         self.state_buffer: str = ""
-        self.generated_text: str = ""
+        self.generated_text: str = '{ "name": "'
 
         self.chosen_function: str | None = None
         self.params_queue: list[tuple[str, str]] = []
@@ -57,18 +48,20 @@ class ConstrainedDecoder:
         """Jump to a specific state by name."""
         self.current_state_idx = self.state_sequence.index(state_name)
         self.state_buffer = ""
+        # print(f"[DEBUG] just switch to {self.current_state}")
 
     def go_to_next_state(self) -> None:
         """Go to the next sequential state."""
         if self.current_state_idx < len(self.state_sequence) - 1:
             self.current_state_idx += 1
             self.state_buffer = ""
+            # print(f"[DEBUG] just switch to {self.current_state}")
 
     def reset_state(self) -> None:
         """Reset the state machine."""
         self.current_state_idx = 0
         self.state_buffer = ""
-        self.generated_text = ""
+        self.generated_text = '{ "name": "'
         self.chosen_function = None
         self.params_queue.clear()
         self.current_param = None
@@ -106,12 +99,7 @@ class ConstrainedDecoder:
         self.generated_text += new_token_string
         self.state_buffer += new_token_string
 
-        if self.current_state in self.state_target:
-            target = self.state_target[self.current_state]
-            if self.state_buffer.strip() == target:
-                self.go_to_next_state()
-
-        elif self.current_state == "FUNCTION_NAME":
+        if self.current_state == "FUNCTION_NAME":
             for func in self.functions_catalog:
                 target = func.name + '"'
                 if self.state_buffer.strip() == target:
@@ -120,24 +108,11 @@ class ConstrainedDecoder:
                     self.go_to_next_state()
                     break
 
+        elif self.current_state == "PARAMS_KEY":
+            self.go_to_next_state()
+
         elif self.current_state == "PARAM_KEY":
-            # If we don't have a current parameter, pop one from the queue
-            if not self.current_param and self.params_queue:
-                self.current_param = self.params_queue.pop(0)
-
-            # If the queue was empty and we have no param, we jump to end!
-            if not self.current_param:
-                self.set_state("DONE")
-                return
-
-            # We expect the LLM to write: '"param_name": '
-            target_key = f'"{self.current_param[0]}":'
-
-            # Using replace to ignore spaces the LLM might add around the colon
-            buffer_no_spaces = self.state_buffer.replace(" ", "").strip()
-
-            if buffer_no_spaces == target_key:
-                self.go_to_next_state()  # Goes to PARAM_VALUE
+            self.go_to_next_state()  # Goes to PARAM_VALUE
 
         elif self.current_state == "PARAM_VALUE":
             # What is the character that ends this value?
@@ -154,79 +129,96 @@ class ConstrainedDecoder:
                     # The JSON is complete!
                     self.set_state("CLOSING_BRACE")
 
-    def filter_logits(self, logits: list[float]) -> list[float]:
+        elif self.current_state == "CLOSING_BRACE":
+            self.go_to_next_state()
+
+    def filter_logits(self, logits: np.ndarray) -> np.ndarray:
         """
-        Evaluates all possible next tokens against the current state.
-        Sets the logit to -math.inf for any token that violates the rules.
+        Evaluates next tokens using optimized pre-computed sets for O(1)
+        matching on numbers and booleans, drastically reducing inference time.
         """
-        for token_id in range(len(logits)):
-            string = self.vocab_manager.get_token_string(token_id)
+        valid_ids: list[int] = []
 
-            if string is None:
-                logits[token_id] = -math.inf
-                continue
+        if self.current_state == "FUNCTION_NAME":
+            # For the function name, we still need to check all tokens,
+            # but we use the pre-cleaned dictionary which is very fast.
+            for token_id, token_str in \
+                    self.vocab_manager.clean_id_to_token.items():
+                simulated_buffer = (self.state_buffer + token_str).lstrip()
 
-            simulated_buffer = (self.state_buffer + string).lstrip()
-
-            if self.current_state in self.state_target:
-                target = self.state_target[self.current_state]
-                if self.current_state in ("OPENING_BRACE", "CLOSING_BRACE"):
-                    if string.strip() != "" and string.strip() != target:
-                        logits[token_id] = -math.inf
-                else:
-                    if not target.startswith(simulated_buffer):
-                        logits[token_id] = -math.inf
-
-            elif self.current_state == "FUNCTION_NAME":
-                is_valid = False
+                is_valid_func = False
                 for func in self.functions_catalog:
                     target = func.name + '"'
-
                     if target.startswith(simulated_buffer):
-                        is_valid = True
+                        is_valid_func = True
                         break
-                if not is_valid:
-                    logits[token_id] = -math.inf
 
-            elif self.current_state == "PARAM_KEY":
-                if self.current_param:
-                    # We tolerate spaces, so we remove them for strict check
-                    target = f'"{self.current_param[0]}":'
-                    sim_no_spaces = simulated_buffer.replace(" ", "")
+                if is_valid_func:
+                    valid_ids.append(token_id)
 
-                    if not target.startswith(sim_no_spaces) and not \
-                            sim_no_spaces.startswith(target):
-                        logits[token_id] = -math.inf
+        elif self.current_state == "PARAM_VALUE":
+            terminal_char = "," if self.params_queue else "}"
+            wrong_terminal = "}" if terminal_char == "," else ","
 
-            elif self.current_state == "PARAM_VALUE":
-                # 1. Prevent early termination
-                terminal_char = "," if self.params_queue else "}"
-                wrong_terminal = "}" if terminal_char == "," else ","
+            param_type = self.current_param[1] if self.current_param else \
+                "string"
 
-                if wrong_terminal in string:
-                    logits[token_id] = -math.inf
-                    continue
+            # =================================================================
+            # THE FAST PATH (Numbers & Booleans)
+            # We ONLY iterate over the VIP lists, skipping 149,000+ tokens!
+            # =================================================================
+            if param_type in ["integer", "number"]:
+                # Combine number tokens & stop tokens (commas, spaces, braces)
+                candidate_ids = (self.vocab_manager.tokens_number |
+                                 self.vocab_manager.tokens_stop)
 
-                # 2. Basic Type Enforcement
-                param_type = \
-                    self.current_param[1] if self.current_param else "string"
+                for token_id in candidate_ids:
+                    token_str = self.vocab_manager.clean_id_to_token[token_id]
+                    if wrong_terminal in token_str:
+                        continue
+                    valid_ids.append(token_id)
 
-                if param_type in ["integer", "number"]:
-                    # If it's a number, only allow digits, spaces,
-                    # and the correct terminal char
-                    allowed_chars = "0123456789. " + terminal_char
-                    if any(char not in allowed_chars for char in string):
-                        logits[token_id] = -math.inf
+            elif param_type == "boolean":
+                candidate_ids = (self.vocab_manager.tokens_boolean |
+                                 self.vocab_manager.tokens_stop)
 
-                elif param_type == "string":
-                    # It's a string. It must be wrapped in quotes.
-                    # For a robust implementation, we would count quotes here.
-                    # As a baseline: if we see the terminal char, ensure it
-                    #  comes AFTER a quote
-                    if terminal_char in string:
-                        # E.g., if string is '",', it's valid. If it's
-                        # just ',', it's missing the closing quote.
-                        if '"' not in simulated_buffer:
-                            logits[token_id] = -math.inf
+                for token_id in candidate_ids:
+                    token_str = self.vocab_manager.clean_id_to_token[token_id]
+                    if wrong_terminal in token_str:
+                        continue
+                    valid_ids.append(token_id)
 
-        return logits
+            # =================================================================
+            # THE STRING PATH
+            # =================================================================
+            elif param_type == "string":
+                # Strings can contain anything, so we must check all tokens.
+                for token_id, token_str in \
+                        self.vocab_manager.clean_id_to_token.items():
+                    simulated_buffer = (self.state_buffer + token_str).lstrip()
+
+                    if wrong_terminal in token_str:
+                        continue
+
+                    if self.state_buffer.strip() == "":
+                        if not token_str.lstrip().startswith('"') and \
+                                token_str.strip() != "":
+                            continue
+
+                    if terminal_char in token_str:
+                        if simulated_buffer.count('"') < 2:
+                            continue
+
+                    valid_ids.append(token_id)
+
+        # =====================================================================
+        # FAST NATIVE MASKING (Pure Python, No Numpy overhead)
+        # =====================================================================
+        mask = np.full(logits.shape, -1e11, dtype=np.float32)
+
+        # 2. Vectorized assignment: copy all valid probabilities at once!
+        # This is the true power of NumPy, replacing the Python 'for' loop.
+        if valid_ids:
+            mask[valid_ids] = logits[valid_ids]
+
+        return mask

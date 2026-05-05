@@ -1,3 +1,4 @@
+import os
 import json
 from pathlib import Path
 from pydantic import TypeAdapter
@@ -104,6 +105,19 @@ def format_final_result(
     return final_result
 
 
-def export_json_to_file(content, path) -> None:
-    """Save the content received in a JSON file."""
-    pass
+def export_json_to_file(content: Any, path: str) -> None:
+    """
+    Save the content received in a properly indented JSON file.
+    Automatically creates the target directory if it does not exist.
+    """
+    try:
+        directory_path = os.path.dirname(path)
+
+        if directory_path:
+            os.makedirs(directory_path, exist_ok=True)
+
+        with open(path, 'w', encoding='utf-8') as file:
+            json.dump(content, file, indent=4, ensure_ascii=False)
+
+    except (IOError, TypeError) as error:
+        print(f"Failed to export JSON to {path}. Error: {error}")
