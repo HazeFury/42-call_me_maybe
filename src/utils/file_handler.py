@@ -104,6 +104,13 @@ def format_final_result(
     return final_result
 
 
-def export_json_to_file(content, path) -> None:
-    """Save the content received in a JSON file."""
-    pass
+def export_json_to_file(content: Any, path: str) -> None:
+    """
+    Save the content received in a properly indented JSON file.
+    """
+    try:
+        with open(path, 'w', encoding='utf-8') as file:
+            # indent=4 ensures the JSON is human-readable and well structured
+            json.dump(content, file, indent=4, ensure_ascii=False)
+    except (IOError, TypeError) as error:
+        print(f"Failed to export JSON to {path}. Error: {error}")

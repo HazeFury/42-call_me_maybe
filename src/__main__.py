@@ -10,10 +10,11 @@ from src.utils.file_handler import export_json_to_file
 
 def main() -> None:
     # ==========================  PARSING  =============================
-    start_time: float = time.time()
+    print("lancement du programme\n")
+
     try:
         functions, prompts, output_path = get_args()
-
+        print(functions)
         if len(prompts) == 0:
             raise ValueError("Please enter at least one prompt to "
                              "start the program !")
@@ -26,11 +27,14 @@ def main() -> None:
     # =========================  GENERATION  =============================
 
     try:
+        print("instanciation du llm\n")
         llm = Small_LLM_Model()
 
         prompter = PromptBuilder(llm, functions)
 
         orchestrator = GenerationOrchestrator(llm, prompter)
+        print("demarage de la boucle principale\n")
+        start_time: float = time.time()
         raw_json = orchestrator.run_generation(prompts, functions)
     except Exception as e:
         print("[ERROR] An error occured during initialization or "
@@ -48,6 +52,10 @@ def main() -> None:
             content=raw_json,
             function_defs=functions
             )
+
+        print("\n\n" + "#"*50 + "\n\n")
+        print(type_checked_raw_json)
+        print("\n\n")
 
         export_json_to_file(
             content=type_checked_raw_json,
