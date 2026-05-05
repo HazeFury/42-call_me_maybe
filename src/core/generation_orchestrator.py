@@ -1,4 +1,5 @@
 import numpy as np
+import time
 from llm_sdk import Small_LLM_Model  # type: ignore
 from src.core.prompt_builder import PromptBuilder
 from src.utils.validators import (
@@ -73,9 +74,13 @@ class GenerationOrchestrator:
         global_input_tensor = self.llm.encode(global_prompt)
         cached_global_ids = global_input_tensor[0].tolist()
 
-        for prompt in prompts:
+        prompt_len = len(prompts)
+
+        for i, prompt in enumerate(prompts):
+            start_time: float = time.time()
             current_prompt = self.prompter.prepare_user_query(prompt)
-            print(f"--- Processing query: {prompt.prompt} ---")
+            print(f"[{i+1}/{prompt_len}] Processing query: '{prompt.prompt}'",
+                  end="")
 
             input_tensor = self.llm.encode(current_prompt)
             user_input_ids = input_tensor[0].tolist()
@@ -113,5 +118,8 @@ class GenerationOrchestrator:
             # print("\n" + "="*50 + "\n")
             tmp = format_final_result(prompt, decoder.generated_text)
             result.append(tmp)
+            end_time: float = time.time()
+            exec_time: float = end_time - start_time
+            print(f"\033[92m   [OK]\033[0m ({exec_time:.5f} seconds)")
 
         return result

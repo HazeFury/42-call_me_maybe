@@ -10,38 +10,49 @@ from src.utils.file_handler import export_json_to_file
 
 def main() -> None:
     # ==========================  PARSING  =============================
-    print("lancement du programme\n")
+    print("\033[34m=================================================\n"
+          "===============    \033[35mCALL ME MAYBE\033[34m    =============\n"
+          "=================================================\033[0m\n\n")
+    print("[INITIALIZATION]\n\nSTEP 1 : Trying to read arguments")
 
     try:
         functions, prompts, output_path = get_args()
-        print(functions)
         if len(prompts) == 0:
             raise ValueError("Please enter at least one prompt to "
                              "start the program !")
 
     except Exception as e:
-        print("[ERROR] An error occured during "
+        print("\033[91m[ERROR]\033[0m An error occured during "
               f"parsing :\n => {e}\n")
         sys.exit(1)
+    else:
+        print("\033[92m[SUCCESS]\033[0m STEP 1 completed without error")
+        print("\n\033[34m===========================================\033[0m\n")
 
-    # =========================  GENERATION  =============================
+    # # =========================  GENERATION  =============================
 
     try:
-        print("instanciation du llm\n")
+        print("STEP 2 : Instanciate the llm and other needed tools")
         llm = Small_LLM_Model()
 
         prompter = PromptBuilder(llm, functions)
 
         orchestrator = GenerationOrchestrator(llm, prompter)
-        print("demarage de la boucle principale\n")
+        print("\033[92m[SUCCESS]\033[0m STEP 2 completed without error")
+        print("\n\033[34m===========================================\033[0m\n")
+        print(f"STEP 3 : Starting the process on {len(prompts)} prompts.")
+
         start_time: float = time.time()
         raw_json = orchestrator.run_generation(prompts, functions)
     except Exception as e:
         print("[ERROR] An error occured during initialization or "
               f"running the main loop of generation :\n => {e}\n")
         sys.exit(1)
+    else:
+        print("\033[92m[SUCCESS]\033[0m STEP 3 completed without error")
+        print("\n\033[34m===========================================\033[0m\n")
 
-    # =========================  EXPORTING  ==============================
+    # # =========================  EXPORTING  ==============================
 
     try:
         print("\n\n" + "#"*50 + "\n\n")
