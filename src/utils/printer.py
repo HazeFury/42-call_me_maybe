@@ -35,8 +35,9 @@ class Printer:
         elif step == 2:
             message = "Instanciate the LLM and other needed tools"
         elif step == 3:
-            message = "Starting the generation process." \
-                      "(Be patient, this may take a few minutes)\n"
+            message = "Starting the generation process. " \
+                      "\033[3m(Be patient, this may take a " \
+                      "few minutes)\n\033[0m"
         elif step == 4:
             message = "Verifying result and exporting it to json file"
         else:
@@ -52,7 +53,7 @@ class Printer:
 
         print(f"\033[92m[SUCCESS]\033[35m STEP {step}\033[0m completed without"
               " error")
-        print("\n\033[34m===========================================\033[0m\n")
+        print("\n" + "\033[34m=\033[0m" * 101 + "\n")
 
     @staticmethod
     def successful_end(
@@ -71,6 +72,17 @@ class Printer:
         print(f"Output file path : \033[35m{output_path}\033[0m")
         print(f"Time of process : \033[35m{exec_time:.5f} seconds "
               f"\033[34m({time_in_minutes})\033[0m")
+
+    @staticmethod
+    def generation_completed(
+        exec_time: float,
+        is_cached: bool = False
+         ) -> None:
+        """Prints a formatted success message for a completed generation."""
+
+        print("\033[92m   [OK]\033[0m "
+              f"\033[95m({exec_time:.5f} seconds)\033[0m"
+              f"{"\033[93m [CACHED]\033[0m" if is_cached else ""}")
 
     @staticmethod
     def error(text: str) -> None:

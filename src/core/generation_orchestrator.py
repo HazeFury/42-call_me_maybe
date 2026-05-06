@@ -10,6 +10,7 @@ from src.core.constrained_decoder import ConstrainedDecoder
 from src.core.vocab_manager import VocabManager
 from src.utils.file_handler import format_final_result
 from typing import Any
+from src.utils.printer import Printer
 
 
 class GenerationOrchestrator:
@@ -29,6 +30,9 @@ class GenerationOrchestrator:
         if decoder.current_state == "PARAM_KEY":
             if decoder.params_queue:
                 decoder.current_param = decoder.params_queue.pop(0)
+
+            if decoder.current_param is None:
+                return False
 
             param_text = f' "{decoder.current_param[0]}": '
             param_tensor = self.llm.encode(param_text)
@@ -57,9 +61,9 @@ class GenerationOrchestrator:
             self,
             prompts: list[PromptValidator],
             functions: list[FunctionValidator]
-            ) -> list[dict[str, str | int]]:
+            ) -> list[dict[str, str | int | float | bool]]:
         """Iterates over all prompts and runs the basic LLM generation loop."""
-        # ========================  INITIALIZATION  ===========================
+        # =============================  INIT  ================================
 
         vocab_path = self.llm.get_path_to_vocab_file()
         vocab_manager = VocabManager(vocab_path)
@@ -68,7 +72,10 @@ class GenerationOrchestrator:
             vocab_manager=vocab_manager,
             functions_defs=functions
             )
-        result: list[dict[str, str | int]] = []
+
+        printer = Printer
+
+        result: list[dict[str, str | int | float | bool]] = []
 
         global_prompt = self.prompter.build_prompt()
 
@@ -79,8 +86,8 @@ class GenerationOrchestrator:
 
         # =========================  PROMPT LOOP  ============================
         for i, prompt in enumerate(prompts):
-            print(f"[{i+1}/{prompt_len}] Processing query: '{prompt.prompt}'",
-                  end="", flush=True)
+            print(f"\033[1;37m[{i+1}/{prompt_len}]\033[0m Processing query: : "
+                  f"'{prompt.prompt}'", end="", flush=True)
 
             start_time: float = time.time()
 
@@ -90,9 +97,7 @@ class GenerationOrchestrator:
                 result.append(cached_result)
                 end_time: float = time.time()
                 exec_time: float = end_time - start_time
-                print("\033[92m   [OK]\033[0m "
-                      f"\033[95m({exec_time:.5f} seconds)\033[0m"
-                      " \033[93m[CACHED]\033[0m")
+                printer.generation_completed(exec_time, is_cached=True)
                 continue
             # ==================
 
@@ -130,10 +135,9 @@ class GenerationOrchestrator:
             result.append(tmp)
             self._cache.append(tmp)
 
-            end_time: float = time.time()
-            exec_time: float = end_time - start_time
-            print("\033[92m   [OK]\033[0m "
-                  f"\033[95m({exec_time:.5f} seconds)\033[0m")
+            end_time = time.time()
+            exec_time = end_time - start_time
+            printer.generation_completed(exec_time, is_cached=False)
 
         return result
 
@@ -142,7 +146,7 @@ class GenerationOrchestrator:
             ) -> dict[str, str | int | float] | None:
         """
         Search if prompt has already been generated. If so, return all the
-        generated response.
+        generated response, else return None.
         """
         for index, response in enumerate(self._cache):
             cached_prompt = response.get("prompt", None)

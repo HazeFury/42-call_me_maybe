@@ -48,14 +48,12 @@ class ConstrainedDecoder:
         """Jump to a specific state by name."""
         self.current_state_idx = self.state_sequence.index(state_name)
         self.state_buffer = ""
-        # print(f"[DEBUG] just switch to {self.current_state}")
 
     def go_to_next_state(self) -> None:
         """Go to the next sequential state."""
         if self.current_state_idx < len(self.state_sequence) - 1:
             self.current_state_idx += 1
             self.state_buffer = ""
-            # print(f"[DEBUG] just switch to {self.current_state}")
 
     def reset_state(self) -> None:
         """Reset the state machine."""
@@ -112,21 +110,17 @@ class ConstrainedDecoder:
             self.go_to_next_state()
 
         elif self.current_state == "PARAM_KEY":
-            self.go_to_next_state()  # Goes to PARAM_VALUE
+            self.go_to_next_state()
 
         elif self.current_state == "PARAM_VALUE":
-            # What is the character that ends this value?
             terminal_char = "," if self.params_queue else "}"
 
-            # If the LLM generates the terminal character, we switch states
             if self.state_buffer.strip().endswith(terminal_char):
-                self.current_param = None  # Clear current parameter
+                self.current_param = None
 
                 if terminal_char == ",":
-                    # Ping-pong back to PARAM_KEY for the next parameter
                     self.set_state("PARAM_KEY")
                 else:
-                    # The JSON is complete!
                     self.set_state("CLOSING_BRACE")
 
         elif self.current_state == "CLOSING_BRACE":
@@ -163,12 +157,9 @@ class ConstrainedDecoder:
             param_type = self.current_param[1] if self.current_param else \
                 "string"
 
-            # =================================================================
-            # THE FAST PATH (Numbers & Booleans)
+            # ============ IF NUMBER or BOOLEAN ============
             # We ONLY iterate over the VIP lists, skipping 149,000+ tokens!
-            # =================================================================
             if param_type in ["integer", "number"]:
-                # Combine number tokens & stop tokens (commas, spaces, braces)
                 candidate_ids = (self.vocab_manager.tokens_number |
                                  self.vocab_manager.tokens_stop)
 
@@ -188,11 +179,8 @@ class ConstrainedDecoder:
                         continue
                     valid_ids.append(token_id)
 
-            # =================================================================
-            # THE STRING PATH
-            # =================================================================
+            # ============ IF STRING ============
             elif param_type == "string":
-                # Strings can contain anything, so we must check all tokens.
                 for token_id, token_str in \
                         self.vocab_manager.clean_id_to_token.items():
                     simulated_buffer = (self.state_buffer + token_str).lstrip()
@@ -211,13 +199,8 @@ class ConstrainedDecoder:
 
                     valid_ids.append(token_id)
 
-        # =====================================================================
-        # FAST NATIVE MASKING (Pure Python, No Numpy overhead)
-        # =====================================================================
         mask = np.full(logits.shape, -1e11, dtype=np.float32)
 
-        # 2. Vectorized assignment: copy all valid probabilities at once!
-        # This is the true power of NumPy, replacing the Python 'for' loop.
         if valid_ids:
             mask[valid_ids] = logits[valid_ids]
 
