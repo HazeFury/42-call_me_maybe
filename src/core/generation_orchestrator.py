@@ -3,7 +3,6 @@ import time
 from llm_sdk import Small_LLM_Model  # type: ignore
 from src.core.prompt_builder import PromptBuilder
 from src.utils.validators import (
-        ResultValidator,
         PromptValidator,
         FunctionValidator
 )
@@ -17,7 +16,7 @@ class GenerationOrchestrator:
     def __init__(self, llm: Small_LLM_Model, prompter: PromptBuilder):
         self.llm: Small_LLM_Model = llm
         self.prompter: PromptBuilder = prompter
-        self._cache: dict[str, ResultValidator] = {}
+        self._cache: list[dict[str, str | int | float]] = []
         self.input_ids: Any = []
 
     def add_tokens_to_context_if_possible(
@@ -60,6 +59,8 @@ class GenerationOrchestrator:
             functions: list[FunctionValidator]
             ) -> list[dict[str, str | int]]:
         """Iterates over all prompts and runs the basic LLM generation loop."""
+        # ========================  INITIALIZATION  ===========================
+
         vocab_path = self.llm.get_path_to_vocab_file()
         vocab_manager = VocabManager(vocab_path)
 
@@ -76,23 +77,36 @@ class GenerationOrchestrator:
 
         prompt_len = len(prompts)
 
+        # =========================  PROMPT LOOP  ============================
         for i, prompt in enumerate(prompts):
-            start_time: float = time.time()
-            current_prompt = self.prompter.prepare_user_query(prompt)
             print(f"[{i+1}/{prompt_len}] Processing query: '{prompt.prompt}'",
                   end="", flush=True)
+
+            start_time: float = time.time()
+
+            # ====== Cache ======
+            cached_result = self.search_in_cache(prompt.prompt)
+            if cached_result is not None:
+                result.append(cached_result)
+                end_time: float = time.time()
+                exec_time: float = end_time - start_time
+                print("\033[92m   [OK]\033[0m "
+                      f"\033[95m({exec_time:.5f} seconds)\033[0m"
+                      " \033[93m[CACHED]\033[0m")
+                continue
+            # ==================
+
+            current_prompt = self.prompter.prepare_user_query(prompt)
 
             input_tensor = self.llm.encode(current_prompt)
             user_input_ids = input_tensor[0].tolist()
 
             self.input_ids = cached_global_ids + user_input_ids
 
-            # print("Output: ", end="", flush=True)
             decoder.reset_state()
 
-            i = 0
+            # ====================  GENERATION PROCESS  =======================
             while decoder.current_state != "DONE":
-                # print(f"#{i} : '{decoder.generated_text}'")
                 if self.add_tokens_to_context_if_possible(decoder):
                     continue
 
@@ -100,8 +114,7 @@ class GenerationOrchestrator:
                     self.llm.get_logits_from_input_ids(self.input_ids),
                     dtype=np.float32
                 )
-                # Flatten the tensor if the model returns a sequence of logits.
-                # We only care about the very last token's probabilities.
+
                 while len(raw_logits.shape) > 1:
                     raw_logits = raw_logits[-1]
 
@@ -112,14 +125,27 @@ class GenerationOrchestrator:
 
                 new_word = self.llm.decode([next_token_id])
                 decoder.update_state(new_word)
-                i += 1
-                # print(new_word, end="", flush=True)
-            # print(f"\nresult : '{decoder.generated_text}'")
-            # print("\n" + "="*50 + "\n")
+            # ===== Generation completed =====
             tmp = format_final_result(prompt, decoder.generated_text)
             result.append(tmp)
+            self._cache.append(tmp)
+
             end_time: float = time.time()
             exec_time: float = end_time - start_time
-            print(f"\033[92m   [OK]\033[0m ({exec_time:.5f} seconds)")
+            print("\033[92m   [OK]\033[0m "
+                  f"\033[95m({exec_time:.5f} seconds)\033[0m")
 
         return result
+
+    def search_in_cache(
+            self, prompt: str
+            ) -> dict[str, str | int | float] | None:
+        """
+        Search if prompt has already been generated. If so, return all the
+        generated response.
+        """
+        for index, response in enumerate(self._cache):
+            cached_prompt = response.get("prompt", None)
+            if cached_prompt == prompt:
+                return self._cache[index]
+        return None

@@ -27,7 +27,7 @@ def main() -> None:
         printer.error(f"An error occured during parsing :\n => {e}")
         sys.exit(1)
     else:
-        printer.step_successed(step=1)
+        printer.step_succeeded(step=1)
 
     # # =========================  GENERATION  =============================
 
@@ -38,7 +38,7 @@ def main() -> None:
         prompter = PromptBuilder(llm, functions)
         orchestrator = GenerationOrchestrator(llm, prompter)
 
-        printer.step_successed(step=2)
+        printer.step_succeeded(step=2)
         printer.display_step(step=3)
 
         start_time: float = time.time()
@@ -52,7 +52,7 @@ def main() -> None:
                       f" main loop of generation :\n => {e}")
         sys.exit(1)
     else:
-        printer.step_successed(step=3)
+        printer.step_succeeded(step=3)
 
     # # =========================  EXPORTING  ==============================
 
@@ -68,7 +68,7 @@ def main() -> None:
             content=type_checked_raw_json,
             path=output_path)
 
-        printer.step_successed(step=4)
+        printer.step_succeeded(step=4)
 
     except Exception as e:
         printer.error("An error occured during the last check"

@@ -1,12 +1,26 @@
+import sys
+
+
 class Printer:
+    """
+    Utility class to handle standardized terminal outputs and logging.
+    Contains static methods for displaying steps, success messages, and errors.
+    """
+
+    @staticmethod
     def introduction() -> None:
+        """
+        Displays the ASCII art banner to mark the beginning of the program.
+        """
         print("\n\n" + "\033[105m=\033[0m"*101 + "\n" +
               "\033[105m=\033[0m"*40 +
               "    CALL ME MAYBE    " +
               "\033[105m=\033[0m"*40 + "\n" +
               "\033[105m=\033[0m"*101)
 
+    @staticmethod
     def display_step(step: int) -> None:
+        """Prints the description of the current execution step."""
         if step == 0:
             print("\n\033[104m[STARTING]\033[0m\n\n")
             return
@@ -30,7 +44,9 @@ class Printer:
 
         print(f"STEP {step} : {message}")
 
-    def step_successed(step) -> None:
+    @staticmethod
+    def step_succeeded(step: int) -> None:
+        """Prints a formatted success message for a completed step."""
         if step < 1 or step > 4:
             return
 
@@ -38,12 +54,16 @@ class Printer:
               " error")
         print("\n\033[34m===========================================\033[0m\n")
 
+    @staticmethod
     def successful_end(
             output_path: str,
             exec_time: float,
             total_prompt: int
             ) -> None:
-
+        """
+        Prints the final summary of the execution after all jobs
+        are successfully completed.
+        """
         time_in_minutes = f"{int(exec_time // 60)}m{int(exec_time % 60)}"
 
         print("\033[92m[SUCCESS]\033[0m All jobs completed successfully :)\n")
@@ -52,5 +72,9 @@ class Printer:
         print(f"Time of process : \033[35m{exec_time:.5f} seconds "
               f"\033[34m({time_in_minutes})\033[0m")
 
+    @staticmethod
     def error(text: str) -> None:
-        print(f"\033[91m[ERROR]\033[0m {text}\n")
+        """
+        Prints a formatted error message to the standard output.
+        """
+        print(f"\033[91m[ERROR]\033[0m {text}\n", file=sys.stderr)
