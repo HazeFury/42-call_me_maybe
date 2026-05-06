@@ -13,7 +13,7 @@ def main() -> None:
     print("\033[34m=================================================\n"
           "===============    \033[35mCALL ME MAYBE\033[34m    =============\n"
           "=================================================\033[0m\n\n")
-    print("[INITIALIZATION]\n\nSTEP 1 : Trying to read arguments")
+    print("[STARTING]\n\nSTEP 1 : Trying to read arguments")
 
     try:
         functions, prompts, output_path = get_args()
@@ -81,6 +81,7 @@ def main() -> None:
         time_in_minutes = f"{int(exec_time // 60)}m{int(exec_time % 60)}"
         print(f"Time of process : \033[35m{exec_time:.5f} seconds "
               f"({time_in_minutes})\033[0m\n")
+        print("[ENDING]")
 
 
 if __name__ == "__main__":
