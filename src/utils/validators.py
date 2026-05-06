@@ -48,7 +48,7 @@ def format_and_cast_results(
         # If the generated function name exists in our definitions catalog
         if func_name in functions_map:
             expected_params_def = functions_map[func_name].parameters
-            casted_parameters = {}
+            casted_parameters: dict[str, Any] = {}
 
             for param_name, raw_value in raw_parameters.items():
                 # Check if the generated parameter is actually expected
