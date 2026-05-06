@@ -92,7 +92,7 @@ class GenerationOrchestrator:
 
             i = 0
             while decoder.current_state != "DONE":
-                # print(f"#{i} : '{decoder.generated_text}'")
+                print(f"#{i} : '{decoder.generated_text}'")
                 if self.add_tokens_to_context_if_possible(decoder):
                     continue
 
@@ -114,7 +114,7 @@ class GenerationOrchestrator:
                 decoder.update_state(new_word)
                 i += 1
                 # print(new_word, end="", flush=True)
-            # print(f"\nresult : '{decoder.generated_text}'")
+            print(f"\nresult : '{decoder.generated_text}'")
             # print("\n" + "="*50 + "\n")
             tmp = format_final_result(prompt, decoder.generated_text)
             result.append(tmp)
