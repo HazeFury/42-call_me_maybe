@@ -6,14 +6,16 @@ from src.core.prompt_builder import PromptBuilder
 from src.utils.parser import get_args
 from src.utils.validators import format_and_cast_results
 from src.utils.file_handler import export_json_to_file
+from src.utils.printer import Printer
 
 
 def main() -> None:
     # ==========================  PARSING  =============================
-    print("\033[34m=================================================\n"
-          "===============    \033[35mCALL ME MAYBE\033[34m    =============\n"
-          "=================================================\033[0m\n\n")
-    print("[STARTING]\n\nSTEP 1 : Trying to read arguments")
+    printer = Printer
+
+    printer.introduction()
+    printer.display_step(step=0)
+    printer.display_step(step=1)
 
     try:
         functions, prompts, output_path = get_args()
@@ -22,42 +24,41 @@ def main() -> None:
                              "start the program !")
 
     except Exception as e:
-        print("\033[91m[ERROR]\033[0m An error occured during "
-              f"parsing :\n => {e}\n")
+        printer.error(f"An error occured during parsing :\n => {e}")
         sys.exit(1)
     else:
-        print("\033[92m[SUCCESS]\033[0m STEP 1 completed without error")
-        print("\n\033[34m===========================================\033[0m\n")
+        printer.step_successed(step=1)
 
     # # =========================  GENERATION  =============================
 
     try:
-        print("STEP 2 : Instanciate the LLM and other needed tools")
+        printer.display_step(step=2)
+
         llm = Small_LLM_Model()
-
         prompter = PromptBuilder(llm, functions)
-
         orchestrator = GenerationOrchestrator(llm, prompter)
-        print("\033[92m[SUCCESS]\033[0m STEP 2 completed without error")
-        print("\n\033[34m===========================================\033[0m\n")
-        print(f"STEP 3 : Starting the process on {len(prompts)} prompts."
-              "(Be patient, this may take a few minutes)\n")
+
+        printer.step_successed(step=2)
+        printer.display_step(step=3)
 
         start_time: float = time.time()
+
         raw_json = orchestrator.run_generation(prompts, functions)
+
         end_time: float = time.time()
+
     except Exception as e:
-        print("\033[91m[ERROR]\033[0m An error occured during the run of the"
-              f" main loop of generation :\n => {e}\n")
+        printer.error("An error occured during the run of the"
+                      f" main loop of generation :\n => {e}")
         sys.exit(1)
     else:
-        print("\033[92m[SUCCESS]\033[0m STEP 3 completed without error")
-        print("\n\033[34m===========================================\033[0m\n")
+        printer.step_successed(step=3)
 
     # # =========================  EXPORTING  ==============================
 
     try:
-        print("STEP 4 : Verifying result and exporting it to json file")
+        printer.display_step(step=4)
+
         type_checked_raw_json = format_and_cast_results(
             content=raw_json,
             function_defs=functions
@@ -67,21 +68,20 @@ def main() -> None:
             content=type_checked_raw_json,
             path=output_path)
 
-        print("\033[92m[SUCCESS]\033[0m STEP 4 completed without error")
-        print("\n\033[34m===========================================\033[0m\n")
+        printer.step_successed(step=4)
 
     except Exception as e:
-        print("\033[91m[ERROR]\033[0m An error occured during the last check"
-              f" and/or export to file process :\n => {e}\n")
+        printer.error("An error occured during the last check"
+                      f" and/or export to file process :\n => {e}\n")
         sys.exit(1)
     else:
-        print("\033[92m[SUCCESS]\033[0m All jobs completed successfully :)\n"
-              f"Output file path : \033[35m{output_path}\033[0m")
         exec_time: float = end_time - start_time
-        time_in_minutes = f"{int(exec_time // 60)}m{int(exec_time % 60)}"
-        print(f"Time of process : \033[35m{exec_time:.5f} seconds "
-              f"({time_in_minutes})\033[0m\n")
-        print("[ENDING]")
+        printer.successful_end(
+            output_path=output_path,
+            exec_time=exec_time,
+            total_prompt=len(prompts)
+            )
+        printer.display_step(5)
 
 
 if __name__ == "__main__":
